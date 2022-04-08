@@ -163,6 +163,11 @@ serviceAccount:
   name: ""
   annotations: {}
 
+## This allows you to set a security policy at the pod level which is necessary
+## in systems with seLinux enabled.
+podSecurityContext:
+  enabled: false
+  securityContext: {}
 ## Specify if a Pod Security Policy for node-exporter must be created
 ## Ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/
 ##
