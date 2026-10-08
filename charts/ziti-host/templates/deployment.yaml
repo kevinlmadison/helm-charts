@@ -28,6 +28,31 @@ spec:
       dnsPolicy: {{ .Values.dnsPolicy }}
       {{- if not .Values.secret.existingSecretName }}
       initContainers:
+        # An enrollment that creates the identity file and then fails leaves a
+        # zero-length file behind. The entrypoint tests it with `-s` and reports it
+        # missing, then `ziti-edge-tunnel enroll` opens it O_CREAT|O_EXCL and fails
+        # with EEXIST -- so on this ReadWriteOnce PVC the pod crashloops forever and
+        # cannot be recovered without clearing the volume by hand. Discard it here so
+        # enrollment can be retried.
+        - name: reset-empty-identity
+          image: busybox
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+          command:
+            - sh
+            - -c
+            - |
+              f="{{ include "ziti-host.identityMountPath" . }}/{{ include "ziti-host.fullname" . }}-identity.json"
+              if [ -e "$f" ] && [ ! -s "$f" ]; then
+                echo "WARN: discarding empty identity file $f left by a failed enrollment" >&2
+                rm -f "$f"
+              fi
+          volumeMounts:
+            - name: persisted-identity
+              mountPath: {{ include "ziti-host.identityMountPath" . }}
         - name: chown-identity-dir
           image: busybox
           imagePullPolicy: {{ .Values.image.pullPolicy }}
